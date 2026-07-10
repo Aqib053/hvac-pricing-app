@@ -3,9 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.database import engine, SessionLocal
-from app.models import Product, Charge, MarginSetting
-from app.database import Base
 from app.routers import products, charges, margins, import_data, dashboard
 
 logging.basicConfig(
@@ -17,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created/verified")
+    logger.info("Application startup")
     yield
     logger.info("Application shutdown")
 
@@ -32,7 +28,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[settings.FRONTEND_URL, "https://hvac-pricing-app-psi.vercel.app", "http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
