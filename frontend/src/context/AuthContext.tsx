@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { setAuthToken, setLogoutCallback } from '../services/api';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
-  token: string | null;
+  session: Session | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -11,44 +13,45 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const isAuthenticated = token !== null;
+  const [session, setSession] = useState<Session | null>(null);
+  const isAuthenticated = session !== null;
 
   const logout = useCallback(() => {
-    setToken(null);
+    supabase.auth.signOut();
+    setSession(null);
     setAuthToken(null);
   }, []);
 
-  // Register the logout callback so the axios interceptor can call it on 401
+  // Register logout callback so the 401 interceptor in api.ts can trigger it
   useEffect(() => {
     setLogoutCallback(logout);
     return () => setLogoutCallback(null);
   }, [logout]);
 
-  // Keep axios in sync whenever token changes
+  // Restore existing session on mount, then subscribe to changes
   useEffect(() => {
-    setAuthToken(token);
-  }, [token]);
-
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthToken(session?.access_token ?? null);
     });
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      const detail = body?.detail;
-      throw new Error(typeof detail === 'string' ? detail : 'Invalid email or password');
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setAuthToken(session?.access_token ?? null);
+    });
 
-    const data = await response.json();
-    setToken(data.access_token);
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    setSession(data.session);
+    setAuthToken(data.session?.access_token ?? null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, token, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, session, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
