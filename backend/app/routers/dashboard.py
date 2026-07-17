@@ -3,12 +3,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.repositories.product import ProductRepository
 from app.schemas.product import ProductListOut
+from app.auth.jwt import get_current_user
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 @router.get("")
-def get_dashboard(db: Session = Depends(get_db)):
+def get_dashboard(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     repo = ProductRepository(db)
     stats = repo.get_stats()
     return {

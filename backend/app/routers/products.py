@@ -6,6 +6,7 @@ from app.repositories.product import ProductRepository
 from app.repositories.margin import MarginRepository
 from app.schemas.product import ProductCreate, ProductUpdate, ProductOut, ProductListOut
 from app.services.pricing import build_pricing_table, build_cost_summary
+from app.auth.jwt import get_current_user, get_current_admin
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
@@ -21,6 +22,7 @@ def list_products(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     repo = ProductRepository(db)
     products, total = repo.get_all(
@@ -38,14 +40,14 @@ def list_products(
 
 
 @router.get("/filters")
-def get_filter_options(db: Session = Depends(get_db)):
+def get_filter_options(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     """Get distinct values for filter dropdowns."""
     repo = ProductRepository(db)
     return repo.get_distinct_values()
 
 
 @router.get("/{product_id}")
-def get_product(product_id: int, db: Session = Depends(get_db)):
+def get_product(product_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     repo = ProductRepository(db)
     margin_repo = MarginRepository(db)
     product = repo.get_by_id(product_id)
@@ -64,7 +66,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
-def create_product(data: ProductCreate, db: Session = Depends(get_db)):
+def create_product(data: ProductCreate, db: Session = Depends(get_db), current_user=Depends(get_current_admin)):
     repo = ProductRepository(db)
     if data.indoor_epn:
         existing = repo.get_by_indoor_epn(data.indoor_epn)
@@ -74,7 +76,7 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{product_id}", response_model=ProductOut)
-def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(get_db)):
+def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_admin)):
     repo = ProductRepository(db)
     product = repo.get_by_id(product_id)
     if not product:
@@ -83,7 +85,7 @@ def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(g
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+def delete_product(product_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_admin)):
     repo = ProductRepository(db)
     product = repo.get_by_id(product_id)
     if not product:

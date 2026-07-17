@@ -12,6 +12,36 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// --- Auth token injection ---
+
+export function setAuthToken(token: string | null) {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+}
+
+let _logoutCallback: (() => void) | null = null;
+
+export function setLogoutCallback(cb: (() => void) | null) {
+  _logoutCallback = cb;
+}
+
+// Response interceptor: on 401, log out and redirect to /login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      if (_logoutCallback) _logoutCallback();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// --- Helpers ---
+
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;

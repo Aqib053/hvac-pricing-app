@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.import_service import ExcelImportService
+from app.auth.jwt import get_current_admin
 
 router = APIRouter(prefix="/import", tags=["Import"])
 
@@ -10,6 +11,7 @@ router = APIRouter(prefix="/import", tags=["Import"])
 async def import_excel(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_admin),
 ):
     if not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="Only Excel files (.xlsx, .xls) are supported")
