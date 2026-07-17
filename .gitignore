@@ -14,3 +14,5 @@ dist/
 # OS
 .DS_Store
 *.lock
+frontend/.env.local
+frontend/.env
